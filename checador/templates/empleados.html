@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block titulo %}Empleados{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Empleados</h1><p class="sub">{{ lista|length }} {{ 'empleado' if lista|length == 1 else 'empleados' }}{% if q or dep %} con ese filtro{% endif %}</p></div>
+  <div class="botones">
+    <a class="boton" href="{{ url_for('ajustes') }}#departamentos">Departamentos</a>
+    <a class="boton primario" href="{{ url_for('empleado_nuevo') }}">+ Nuevo empleado</a>
+  </div>
+</div>
+
+<form class="filtros" method="get">
+  <div><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ q }}" placeholder="Nombre, número o puesto"></div>
+  <div><label for="dep">Departamento</label>
+    <select id="dep" name="dep" onchange="this.form.submit()"><option value="">Todos</option>
+      {% for d in deps %}<option value="{{ d.id }}" {{ 'selected' if dep == d.id|string }}>{{ d.nombre }}</option>{% endfor %}</select></div>
+  <div><label for="ver">Mostrar</label>
+    <select id="ver" name="ver" onchange="this.form.submit()">
+      <option value="activos" {{ 'selected' if ver == 'activos' }}>Activos</option>
+      <option value="bajas" {{ 'selected' if ver == 'bajas' }}>Dados de baja</option>
+      <option value="todos" {{ 'selected' if ver == 'todos' }}>Todos</option></select></div>
+  <button>Buscar</button>
+</form>
+
+<div class="tabla-caja">
+<table>
+  <thead><tr><th style="width:80px">No.</th><th>Nombre</th><th>Departamento</th><th>Ingreso</th><th class="c">Huella</th><th>Contrato</th></tr></thead>
+  <tbody>
+  {% for e in lista %}
+    <tr class="click" onclick="location='{{ url_for('empleado', id_=e.id) }}'">
+      <td class="num chico">{{ e.numero }}</td>
+      <td><a class="persona" href="{{ url_for('empleado', id_=e.id) }}">{{ avatar(e) }}<span><b>{{ e.nombre }} {{ e.apellidos }}</b>{% if e.puesto %}<span class="chico">{{ e.puesto }}</span>{% endif %}</span>{% if not e.activo %}<span class="et mal">baja</span>{% endif %}</a></td>
+      <td>{{ e.departamento or '—' }}</td>
+      <td class="chico">{{ e.fecha_ingreso|fecha or '—' }}</td>
+      <td class="c">{% if e.tiene_huella %}<span class="et ok">✓</span>{% else %}<span class="et warn">falta</span>{% endif %}</td>
+      <td>{% if not e.tiene_contrato %}<span class="et">sin cargar</span>
+          {% elif e.contrato_vence and e.contrato_vence < hoy.isoformat() %}<span class="et mal">vencido</span>
+          {% elif e.contrato_vence %}<span class="et ok">hasta {{ e.contrato_vence|fecha }}</span>
+          {% else %}<span class="et ok">indefinido</span>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="vacio" style="padding:32px 18px">No hay empleados {% if q %}que coincidan con “{{ q }}”{% endif %}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block titulo %}Asistencia{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Asistencia</h1><p class="sub">Del {{ desde|fecha }} al {{ hasta|fecha }} · {{ res|length }} empleados</p></div>
+  <div class="botones no-imprimir">
+    <a class="boton" target="_blank" href="{{ url_for('reportes_descargar', tipo='general', periodo='fechas', desde=desde, hasta=hasta, dep=dep) }}">PDF</a>
+    <a class="boton primario" href="{{ url_for('asistencia_excel', desde=desde, hasta=hasta, dep=dep) }}">Descargar Excel</a>
+  </div>
+</div>
+
+<form class="filtros" method="get">
+  <div><label for="desde">Desde</label><input type="date" id="desde" name="desde" value="{{ desde.isoformat() }}"></div>
+  <div><label for="hasta">Hasta</label><input type="date" id="hasta" name="hasta" value="{{ hasta.isoformat() }}"></div>
+  <div><label for="dep">Departamento</label>
+    <select id="dep" name="dep"><option value="">Todos</option>
+      {% for d in deps %}<option value="{{ d.id }}" {{ 'selected' if dep == d.id|string }}>{{ d.nombre }}</option>{% endfor %}</select></div>
+  <button class="primario">Ver</button>
+</form>
+<div class="pastillas" style="margin:-8px 0 32px">
+  {% for etiqueta, a, b in rangos %}<a href="{{ url_for('asistencia_vista', desde=a, hasta=b, dep=dep) }}">{{ etiqueta }}</a>{% endfor %}
+</div>
+
+<div class="tabla-caja">
+<table class="cuadro">
+  <thead><tr>
+    <th>Empleado</th>
+    {% for d in dias %}<th class="dia">{{ ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d.weekday()] }}<small>{{ d.day }}/{{ d.month }}</small></th>{% endfor %}
+    <th class="c">Faltas</th><th class="c">Retardos</th><th class="d">Horas</th>
+  </tr></thead>
+  <tbody>
+  {% for r in res %}
+  <tr>
+    <td style="min-width:250px"><a class="persona" href="{{ url_for('empleado', id_=r.emp.id, desde=desde, hasta=hasta) }}#asistencia">{{ avatar(r.emp) }}
+      <span><b>{{ r.emp.nombre }} {{ r.emp.apellidos }}</b><span class="chico">{{ r.emp.departamento or 'Sin departamento' }}</span></span></a></td>
+    {% for d in r.detalle %}
+      {% set cls = 'falta' if d.estado == 'falta' else ('justificado' if d.estado == 'justificado' else ('festivo' if d.estado == 'festivo' else ('retardo' if d.retardo else ('incompleto' if d.estado == 'incompleto' else ('descanso' if d.estado == 'descanso' else ''))))) %}
+      <td class="dia {{ cls }}" title="{{ d.plan_texto }}{% if d.texto %} · Checadas: {{ d.texto }}{% endif %}{% if d.retardo %} · retardo {{ d.retardo|int }} min{% endif %}{% if d.justificacion and d.plan %} · {{ d.justificacion.texto }}{% if d.justificacion.nota %}: {{ d.justificacion.nota }}{% endif %}{% endif %}">
+        {% if d.checadas %}
+          <span class="h">{{ d.checadas[0].strftime('%H:%M') }}</span>
+          <span class="h">{{ d.checadas[-1].strftime('%H:%M') if d.checadas|length > 1 else '—' }}</span>
+        {% elif d.estado == 'falta' %}Falta
+        {% elif d.estado == 'justificado' %}{{ d.justificacion.abrev }}
+        {% elif d.estado == 'festivo' %}Festivo
+        {% elif d.estado == 'descanso' %}·{% endif %}
+      </td>
+    {% endfor %}
+    <td class="c">{% if r.faltas %}<span class="et mal">{{ r.faltas }}</span>{% else %}<span class="chico">0</span>{% endif %}</td>
+    <td class="c">{% if r.retardos %}<span class="et warn">{{ r.retardos }}</span>{% else %}<span class="chico">0</span>{% endif %}</td>
+    <td class="d num"><b>{{ fmt_horas(r.minutos) }}</b></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="{{ dias|length + 4 }}" class="vacio" style="padding:32px 18px">No hay empleados para mostrar.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="leyenda">
+  <span>Cada día muestra <b>entrada</b> y <b>salida</b>. Pasa el cursor para ver todas las checadas.</span>
+  <span><i style="background:var(--ambar-f);border:1px solid #f5d7a1"></i>Retardo</span>
+  <span><i style="background:var(--rojo-f);border:1px solid #fecaca"></i>Falta</span>
+  <span><i style="background:var(--azul-claro);border:1px solid var(--azul-borde)"></i>Justificado (vacaciones, incapacidad, permiso)</span>
+  <span><i style="background:#f5f3ff;border:1px solid #ddd6fe"></i>Día festivo</span>
+  <span><i style="background:var(--fondo-2);border:1px solid var(--linea)"></i>Le faltó checar</span>
+</div>
+{% endblock %}

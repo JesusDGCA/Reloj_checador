@@ -1,0 +1,16 @@
+# Entornos y caché de Python
+.venv/
+__pycache__/
+*.pyc
+
+# Datos de la aplicación (información personal de empleados)
+checador/data/
+
+# Artefactos de construcción
+build/pyembed/
+build/staging/
+*.exe
+
+# Sistema
+Thumbs.db
+desktop.ini

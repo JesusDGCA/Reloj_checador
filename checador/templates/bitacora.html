@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}Bitácora{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Bitácora</h1>
+    <p class="sub">Todo lo que se hace en el programa: quién lo hizo, cuándo y qué cambió. {{ total }} {{ 'movimiento' if total == 1 else 'movimientos' }} con estos filtros.</p></div>
+  <div class="botones no-imprimir">
+    <a class="boton primario" href="{{ url_for('bitacora_excel', **args_url) }}">Descargar Excel</a>
+  </div>
+</div>
+
+<form class="filtros" method="get">
+  <div><label for="desde">Desde</label><input type="date" id="desde" name="desde" value="{{ f.desde.isoformat() }}"></div>
+  <div><label for="hasta">Hasta</label><input type="date" id="hasta" name="hasta" value="{{ f.hasta.isoformat() }}"></div>
+  <div><label for="usuario">Usuario</label>
+    <select id="usuario" name="usuario"><option value="">Todos</option>
+      {% for u in usuarios %}<option value="{{ u }}" {{ 'selected' if f.usuario == u }}>{{ 'El programa (automático)' if u == 'sistema' else u }}</option>{% endfor %}</select></div>
+  <div><label for="tipo">Tipo</label>
+    <select id="tipo" name="tipo"><option value="">Todos</option>
+      <option value="info" {{ 'selected' if f.tipo == 'info' }}>Movimientos</option>
+      <option value="error" {{ 'selected' if f.tipo == 'error' }}>Errores</option></select></div>
+  <div><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ f.q }}" placeholder="Ej. nombre, número, checada, festivo…"></div>
+  <button class="primario">Ver</button>
+</form>
+
+<div class="tabla-caja">
+  <table class="bitacora">
+    <thead><tr><th style="width:150px">Fecha y hora</th><th style="width:140px">Usuario</th><th>Movimiento</th></tr></thead>
+    <tbody>
+    {% for b in filas %}
+    <tr class="{{ b.tipo }}">
+      <td class="num chico" style="white-space:nowrap">{{ b.fecha|fecha }} {{ b.fecha[11:16] }}</td>
+      <td>{% if (b.usuario or 'sistema') == 'sistema' %}<span class="chico">automático</span>{% else %}<b>{{ b.usuario }}</b>{% endif %}</td>
+      <td class="mov">{% if b.tipo == 'error' %}<span class="et mal">error</span> {% endif %}{{ b.mensaje }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="vacio" style="padding:32px 18px">No hay movimientos con estos filtros.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if paginas > 1 %}
+<div class="paginas">
+  {% if pagina > 1 %}<a class="boton" href="{{ url_for('bitacora', pagina=pagina - 1, **args_url) }}">← Más recientes</a>{% endif %}
+  <span class="chico">Página {{ pagina }} de {{ paginas }}</span>
+  {% if pagina < paginas %}<a class="boton" href="{{ url_for('bitacora', pagina=pagina + 1, **args_url) }}">Más antiguos →</a>{% endif %}
+</div>
+{% endif %}
+
+<details class="tarjeta plegable" style="margin-top:32px">
+  <summary>Borrar registros antiguos</summary>
+  <p class="chico">El registro más antiguo es del {{ mas_vieja|fecha if mas_vieja else '—' }}. Siempre se conservan los últimos 3 meses.
+    Descarga el Excel antes de borrar si lo quieres guardar. Esta acción no se puede deshacer y queda anotada en la bitácora.</p>
+  <form method="post" action="{{ url_for('bitacora_limpiar') }}" class="botones" style="align-items:flex-end;margin-top:16px"
+        data-confirmar="¿Borrar todos los registros de la bitácora anteriores a esa fecha? No se puede deshacer.">
+    <div><label for="antes">Borrar todo lo anterior al</label>
+      <input type="date" id="antes" name="antes" max="{{ limite_limpiar.isoformat() }}" required></div>
+    <button class="peligro">Borrar</button>
+  </form>
+</details>
+{% endblock %}

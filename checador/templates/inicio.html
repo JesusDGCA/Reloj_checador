@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block titulo %}Hoy{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div>
+    <h1>{{ DIAS[hoy.weekday()] }} {{ hoy|fecha }}</h1>
+    <p class="sub">Así va el día. Esta pantalla se actualiza sola.</p>
+  </div>
+  <a class="boton primario" href="{{ url_for('empleado_nuevo') }}">+ Nuevo empleado</a>
+</div>
+
+{% if r.festivo %}<div class="aviso info" style="margin-bottom:24px"><b>Hoy es día festivo: {{ r.festivo }}.</b> Nadie tiene falta; quien venga a trabajar se cuenta como horas extra.</div>{% endif %}
+<div class="rejilla r4">
+  <div class="cifra-caja"><div class="cifra azul">{{ r.presentes|length }}</div><div class="cifra-et">ya checaron</div></div>
+  <div class="cifra-caja"><div class="cifra {{ 'mal' if r.faltan }}">{{ r.faltan|length }}</div><div class="cifra-et">no han llegado</div></div>
+  <div class="cifra-caja"><div class="cifra {{ 'warn' if r.retardos }}">{{ r.retardos|length }}</div><div class="cifra-et">llegaron tarde</div></div>
+  <div class="cifra-caja"><div class="cifra">{{ r.total }}</div><div class="cifra-et">empleados activos</div></div>
+</div>
+
+<div class="rejilla r2" style="margin-top:28px">
+  <div class="tarjeta">
+    <h2>Últimas checadas</h2>
+    <div id="vivo"><p class="vacio">Cargando…</p></div>
+  </div>
+
+  <div class="pila">
+    {% if por_vencer or sin_contrato or sin_huella %}
+    <div class="tarjeta">
+      <h2>Pendientes</h2>
+      <ul class="lista-simple">
+        {% for d in por_vencer %}
+        <li><a href="{{ url_for('empleado', id_=d.emp_id) }}#documentos">{{ d.nombre }} {{ d.apellidos }}</a>
+          {% if d.vence < hoy.isoformat() %}<span class="et mal">contrato venció {{ d.vence|fecha }}</span>
+          {% else %}<span class="et warn">contrato vence {{ d.vence|fecha }}</span>{% endif %}</li>
+        {% endfor %}
+        {% if sin_contrato %}<li><a href="{{ url_for('empleados') }}">{{ sin_contrato }} empleados sin contrato cargado</a><span class="et">expediente</span></li>{% endif %}
+        {% if sin_huella %}<li><a href="{{ url_for('reloj_vista') }}">{{ sin_huella }} empleados sin huella respaldada</a><span class="et">reloj</span></li>{% endif %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if r.retardos %}
+    <div class="tarjeta">
+      <h2>Llegaron tarde</h2>
+      <ul class="lista-simple">
+        {% for x in r.retardos %}
+        <li><a class="persona" href="{{ url_for('empleado', id_=x.emp.id) }}">{{ avatar(x.emp) }}<span><b>{{ x.emp.nombre }} {{ x.emp.apellidos }}</b></span></a>
+          <span><span class="num">{{ x.detalle[0].checadas[0].strftime('%H:%M') }}</span>&nbsp; <span class="et warn">+{{ x.detalle[0].retardo|int }} min</span></span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="tarjeta">
+      <h2>No han llegado <span class="chico" style="font-weight:400">· {{ r.faltan|length }}</span></h2>
+      {% if r.faltan %}
+      <ul class="lista-simple">
+        {% for x in r.faltan %}
+        <li><a class="persona" href="{{ url_for('empleado', id_=x.emp.id) }}">{{ avatar(x.emp) }}<span><b>{{ x.emp.nombre }} {{ x.emp.apellidos }}</b><span class="chico">{{ x.emp.departamento or '' }}</span></span></a>
+          <span class="chico" style="white-space:nowrap">{{ x.detalle[0].plan_texto }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="vacio">Todos los que trabajan hoy ya checaron.</p>{% endif %}
+    </div>
+
+    {% if r.justificados %}
+    <div class="tarjeta">
+      <h2>Ausencias justificadas <span class="chico" style="font-weight:400">· {{ r.justificados|length }}</span></h2>
+      <ul class="lista-simple">
+        {% for x in r.justificados %}{% set j = x.detalle[0].justificacion %}
+        <li><a class="persona" href="{{ url_for('empleado', id_=x.emp.id) }}#asistencia">{{ avatar(x.emp) }}<span><b>{{ x.emp.nombre }} {{ x.emp.apellidos }}</b><span class="chico">{{ j.nota }}</span></span></a>
+          <span class="et azul">{{ j.texto }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let vistas = null;
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function refrescar() {
+  try {
+    const r = await fetch('{{ url_for("api_ultimas") }}');
+    if (r.status === 401) { location.reload(); return; }  // la sesión se cerró: vuelve al inicio de sesión
+    const d = await r.json();
+    const caja = document.getElementById('vivo');
+    if (!d.ultimas.length) { caja.innerHTML = '<p class="vacio">Todavía no hay checadas.</p>'; return; }
+    const claves = d.ultimas.map(u => u.numero + u.fecha + u.hora);
+    caja.innerHTML = d.ultimas.slice(0, 12).map((u, i) => {
+      const nueva = vistas && !vistas.includes(claves[i]);
+      const ini = esc((u.nombre || '?')[0]);
+      const av = u.foto ? `<img class="avatar g" src="${u.foto}" alt="">` : `<span class="avatar g">${ini}</span>`;
+      const tag = u.url ? 'a' : 'div';
+      return `<${tag} class="vivo-fila persona ${nueva ? 'nueva' : ''}" ${u.url ? `href="${u.url}"` : ''}>${av}
+        <span><b>${esc(u.nombre)}</b><span class="chico">No. ${esc(u.numero)}${u.depto ? ' · ' + esc(u.depto) : ''}</span></span>
+        <span class="hora">${esc(u.hora)}${u.fecha ? `<small>${esc(u.fecha)}</small>` : ''}</span></${tag}>`;
+    }).join('');
+    vistas = claves;
+  } catch (e) {}
+}
+refrescar();
+setInterval(refrescar, 15000);
+setTimeout(() => location.reload(), 300000);
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block titulo %}Reloj checador{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Reloj checador</h1>
+    <p class="sub">Las checadas se leen solas cada {{ cfg.sync_minutos }} minutos mientras el programa esté abierto.</p></div>
+  <form method="post" action="{{ url_for('reloj_accion', accion='probar') }}" class="espera"><button class="primario">Probar conexión</button></form>
+</div>
+
+{% if estado_reloj.error %}
+<div class="aviso error"><b>No se pudo leer el reloj.</b> {{ estado_reloj.error }}<br>
+  Revisa que el reloj esté encendido y en la misma red que esta computadora, y que la dirección IP sea correcta
+  (en el reloj: Menú › Sistema › Ethernet). Si tienes abierto el programa de Steren, ciérralo.</div>
+{% endif %}
+
+{% if info %}
+<div class="rejilla r4" style="margin-bottom:28px">
+  <div class="cifra-caja"><div class="cifra">{{ info.usuarios }}</div><div class="cifra-et">usuarios en el reloj</div></div>
+  <div class="cifra-caja"><div class="cifra">{{ info.huellas }}</div><div class="cifra-et">huellas en el reloj</div></div>
+  <div class="cifra-caja"><div class="cifra">{{ info.checadas }}</div><div class="cifra-et">checadas guardadas</div></div>
+  <div class="cifra-caja"><div class="cifra">{{ info.hora[11:16] }}</div><div class="cifra-et">hora del reloj · serie {{ info.serie }}</div></div>
+</div>
+{% endif %}
+
+<div class="rejilla r2">
+  <div class="tarjeta">
+    <h2>Acciones</h2>
+    <div class="acciones-lista">
+      <div class="accion"><span><b>Leer checadas</b><span class="chico">Trae las checadas nuevas del reloj.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='checadas') }}" class="espera"><button>Leer</button></form></div>
+      <div class="accion"><span><b>Poner la hora correcta</b><span class="chico">Copia la hora de esta computadora al reloj.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='hora') }}" class="espera"><button>Ajustar</button></form></div>
+      <div class="accion"><span><b>Respaldar huellas</b><span class="chico">Guarda aquí una copia de las huellas. Hazlo cada vez que registres huellas nuevas.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='respaldar') }}" class="espera"><button>Respaldar</button></form></div>
+      <div class="accion"><span><b>Enviar empleados al reloj</b><span class="chico">Da de alta o actualiza a los {{ n.empleados }} empleados activos. No borra huellas.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='enviar_todos') }}" class="espera"><button>Enviar</button></form></div>
+      <div class="accion"><span><b>Cargar huellas al reloj</b><span class="chico">Sube las huellas respaldadas. Útil si el reloj se borró o es nuevo.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='restaurar_todos') }}" class="espera"
+              data-confirmar="Se cargarán {{ n.huellas }} huellas al reloj. ¿Continuar?"><button>Cargar</button></form></div>
+      <div class="accion"><span><b>Traer empleados del reloj</b><span class="chico">Agrega aquí a quien esté en el reloj pero no en esta lista.</span></span>
+        <form method="post" action="{{ url_for('reloj_accion', accion='traer_usuarios') }}" class="espera"><button>Traer</button></form></div>
+    </div>
+  </div>
+
+  <div class="pila">
+    <form class="tarjeta" method="post" action="{{ url_for('reloj_config') }}">
+      <h2>Conexión</h2>
+      <div class="campos">
+        <div><label for="ip">Dirección IP del reloj</label><input id="ip" name="reloj_ip" value="{{ cfg.reloj_ip }}"></div>
+        <div><label for="pu">Puerto</label><input id="pu" name="reloj_puerto" value="{{ cfg.reloj_puerto }}" inputmode="numeric"></div>
+        <div><label for="pw">Contraseña de comunicación</label><input id="pw" name="reloj_password" value="{{ cfg.reloj_password }}" inputmode="numeric"></div>
+        <div><label for="sm">Leer checadas cada (min)</label><input id="sm" name="sync_minutos" type="number" min="1" max="120" value="{{ cfg.sync_minutos }}"></div>
+      </div>
+      <div class="pila" style="margin:24px 0">
+        <label class="check"><input type="checkbox" name="ajustar_hora" value="1" {{ 'checked' if cfg.ajustar_hora == '1' }}> Corregir la hora del reloj automáticamente</label>
+        <label class="check"><input type="checkbox" name="reloj_udp" value="1" {{ 'checked' if cfg.reloj_udp == '1' }}> Usar UDP (solo si no conecta de la forma normal)</label>
+      </div>
+      <button class="primario">Guardar</button>
+    </form>
+
+    <div class="tarjeta">
+      <h2>En esta computadora</h2>
+      <ul class="lista-simple">
+        <li>Empleados activos <b class="num">{{ n.empleados }}</b></li>
+        <li>Con huella respaldada <b class="num">{{ n.con_huella }}</b></li>
+        <li>Checadas guardadas <b class="num">{{ n.checadas }}</b></li>
+      </ul>
+    </div>
+
+    <details class="tarjeta plegable">
+      <summary>Ver bitácora</summary>
+      <ul class="lista-simple">
+        {% for b in bit %}
+        <li><span class="{{ 'peligro' if b.tipo == 'error' }}">{{ b.mensaje }}</span><span class="chico num" style="white-space:nowrap">{{ b.usuario or 'sistema' }} · {{ b.fecha[5:16] }}</span></li>
+        {% else %}<li class="vacio">Sin movimientos todavía.</li>{% endfor %}
+      </ul>
+      <p style="margin:16px 0 0"><a href="{{ url_for('bitacora') }}">Ver la bitácora completa →</a></p>
+    </details>
+  </div>
+</div>
+{% endblock %}

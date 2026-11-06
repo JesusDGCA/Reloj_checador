@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if configurar %}Crear administrador{% else %}Iniciar sesión{% endif %} · Checador</title>
+<link rel="icon" href="{{ url_for('static', filename='checador.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+<style>
+  body { display: flex; align-items: center; justify-content: center; background: var(--fondo-2); padding: 24px; }
+  .acceso { width: 100%; max-width: 420px; }
+  .acceso .marca { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; justify-content: center; }
+  .acceso .marca img { width: 44px; height: 44px; }
+  .acceso .marca b { display: block; font-size: 1.3rem; color: var(--tinta); }
+  .acceso .marca small { color: var(--suave); }
+  .acceso label { margin-top: 16px; }
+  .acceso button { width: 100%; margin-top: 24px; justify-content: center; }
+</style>
+</head>
+<body>
+<div class="acceso">
+  <div class="marca">
+    <img src="{{ url_for('static', filename='checador.png') }}" alt="">
+    <div><b>Checador</b><small>{{ empresa }}</small></div>
+  </div>
+
+  {% for tipo, msg in get_flashed_messages(with_categories=true) %}<div class="aviso {{ tipo }}">{{ msg }}</div>{% endfor %}
+
+  {% if apagado %}
+  <div class="tarjeta">
+    <h2>Checador se cerró</h2>
+    <p class="chico" style="margin:0">Ya puedes cerrar esta ventana y sacar la USB.</p>
+  </div>
+
+  {% elif sin_usuarios %}
+  <div class="tarjeta">
+    <h2>Programa sin configurar</h2>
+    <p class="chico" style="margin:0">Todavía no hay usuarios. El primer usuario se crea desde la computadora donde está instalado Checador.</p>
+  </div>
+
+  {% elif configurar %}
+  <form class="tarjeta" method="post" action="{{ url_for('configurar') }}">
+    <h2>Crear usuario administrador</h2>
+    <p class="chico" style="margin:0">Es la primera vez que se abre Checador. Crea el usuario con el que vas a entrar.
+      Después podrás agregar más usuarios en <b>Ajustes</b>.</p>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" name="usuario" value="{{ usuario or '' }}" autocomplete="username" required autofocus>
+    <label for="nombre">Nombre (opcional)</label>
+    <input id="nombre" name="nombre" value="{{ nombre or '' }}" autocomplete="name">
+    <label for="contrasena">Contraseña</label>
+    <input id="contrasena" name="contrasena" type="password" autocomplete="new-password" minlength="6" required>
+    <label for="contrasena2">Repite la contraseña</label>
+    <input id="contrasena2" name="contrasena2" type="password" autocomplete="new-password" minlength="6" required>
+    <button class="primario">Crear y continuar</button>
+  </form>
+
+  {% else %}
+  <form class="tarjeta" method="post" action="{{ url_for('login') }}">
+    <h2>Iniciar sesión</h2>
+    <input type="hidden" name="siguiente" value="{{ siguiente or '' }}">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" name="usuario" value="{{ usuario or '' }}" autocomplete="username" required {{ 'autofocus' if not usuario }}>
+    <label for="contrasena">Contraseña</label>
+    <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required {{ 'autofocus' if usuario }}>
+    <button class="primario">Entrar</button>
+  </form>
+  {% endif %}
+</div>
+</body>
+</html>

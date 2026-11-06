@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}{% endblock %} · Checador</title>
+<link rel="icon" href="{{ url_for('static', filename='checador.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+{% set pagina = request.endpoint or '' %}
+<nav class="lateral">
+  <div class="marca">
+    <img src="{{ url_for('static', filename='checador.png') }}" alt="">
+    <div><b>Checador</b><small>{{ empresa }}</small></div>
+  </div>
+  <div class="enlaces">
+    <a href="{{ url_for('inicio') }}" class="{{ 'activo' if pagina == 'inicio' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Hoy</a>
+    <a href="{{ url_for('empleados') }}" class="{{ 'activo' if pagina.startswith('empleado') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.7 2.8 2.5 3 5.2"/></svg>Empleados</a>
+    <a href="{{ url_for('asistencia_vista') }}" class="{{ 'activo' if pagina.startswith('asistencia') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4M8.5 15l2.3 2.3L15.5 13"/></svg>Asistencia</a>
+    <a href="{{ url_for('reportes_vista') }}" class="{{ 'activo' if pagina.startswith('reportes') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 17v-3M12 17v-6M15 17v-2"/></svg>Reportes</a>
+    <a href="{{ url_for('horarios_vista') }}" class="{{ 'activo' if pagina.startswith('horarios') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Horarios</a>
+    <a href="{{ url_for('reloj_vista') }}" class="{{ 'activo' if pagina.startswith('reloj') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3-1 6-3 8M8 8a5 5 0 0 1 9 3c0 2 0 4-1 6M5 12a7 7 0 0 1 1-4M19 15c.5-1.5.5-3 .5-4A7.5 7.5 0 0 0 8 4.5M12 14c0 2-.5 4-1.5 5.5"/></svg>Reloj checador</a>
+    <a href="{{ url_for('bitacora') }}" class="{{ 'activo' if pagina.startswith('bitacora') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M10 8h5M10 12h5M10 16h3"/></svg>Bitácora</a>
+    <a href="{{ url_for('ajustes') }}" class="{{ 'activo' if pagina.startswith('ajustes') or pagina.startswith('festivo') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>Ajustes</a>
+  </div>
+  <div class="estado-reloj">
+    <b><span class="punto {{ 'ok' if estado_reloj.ok else ('mal' if estado_reloj.error else '') }}"></span>
+      {% if estado_reloj.simulado %}Reloj de práctica{% elif estado_reloj.ok %}Reloj conectado{% elif estado_reloj.error %}Sin conexión{% else %}Reloj sin probar{% endif %}</b>
+    <span class="linea">{% if estado_reloj.ultima %}Última lectura {{ estado_reloj.ultima[11:16] }}{% if estado_reloj.ultima[:10] != hoy.isoformat() %} del {{ estado_reloj.ultima|fecha }}{% endif %}{% else %}Aún no se ha leído{% endif %}</span>
+    <form method="post" action="{{ url_for('sincronizar') }}" class="espera"><button>Leer checadas ahora</button></form>
+  </div>
+  {% if usuario_actual %}
+  <div class="estado-reloj sesion" style="margin-top:12px">
+    <b>{{ usuario_actual.nombre or usuario_actual.usuario }}</b>
+    <span class="linea">Usuario: {{ usuario_actual.usuario }}</span>
+    <form method="post" action="{{ url_for('logout') }}"><button>Cerrar sesión</button></form>
+    {% if portatil %}<form method="post" action="{{ url_for('apagar') }}" style="margin-top:8px"
+      data-confirmar="¿Cerrar Checador? Después ya puedes sacar la USB."><button class="peligro">Cerrar programa (USB)</button></form>{% endif %}
+  </div>
+  {% endif %}
+</nav>
+<main>
+  {% block contenido %}{% endblock %}
+</main>
+<dialog id="confirmacion" class="confirmacion" aria-labelledby="confirmacion-titulo">
+  <form method="dialog">
+    <h2 id="confirmacion-titulo">Confirmar</h2>
+    <p class="mensaje"></p>
+    <div class="botones derecha">
+      <button value="no" class="no">Cancelar</button>
+      <button value="si" class="si primario">Aceptar</button>
+    </div>
+  </form>
+</dialog>
+<div class="avisos-flotantes" aria-live="polite">
+  {% for tipo, msg in get_flashed_messages(with_categories=true) %}
+  <div class="aviso {{ tipo }}" role="{{ 'alert' if tipo == 'error' else 'status' }}">
+    <span class="icono">{{ '!' if tipo == 'error' else ('✓' if tipo == 'ok' else 'i') }}</span>
+    <span class="texto">{{ msg }}</span>
+    <button type="button" class="cerrar" aria-label="Cerrar aviso">×</button>
+  </div>
+  {% endfor %}
+</div>
+<script>
+  // Avisos flotantes: se cierran con la ×; los de éxito/información se quitan solos, los de error se quedan
+  document.querySelectorAll('.avisos-flotantes .aviso').forEach(a => {
+    const quitar = () => { a.classList.add('saliendo'); setTimeout(() => a.remove(), 300); };
+    a.querySelector('.cerrar').addEventListener('click', quitar);
+    if (!a.classList.contains('error')) setTimeout(quitar, 6000);
+  });
+  // Evita doble clic en acciones que tardan (hablar con el reloj) y avisa que está trabajando
+  document.querySelectorAll('form.espera').forEach(f => f.addEventListener('submit', () => {
+    const b = f.querySelector('button[type=submit], button:not([type])');
+    if (b) { setTimeout(() => { b.disabled = true; b.textContent = 'Trabajando…'; }, 0); }
+  }));
+  // Confirmaciones con el estilo del programa (en vez del cuadro del navegador "localhost dice…").
+  // Uso: data-confirmar="¿Seguro?" en el <form> o en el botón que lo envía.
+  const dlg = document.getElementById('confirmacion');
+  function confirmar(mensaje, textoBoton, peligro) {
+    return new Promise(resolver => {
+      dlg.querySelector('.mensaje').textContent = mensaje;
+      const si = dlg.querySelector('.si');
+      si.textContent = textoBoton || 'Aceptar';
+      si.className = 'si ' + (peligro ? 'peligro-lleno' : 'primario');
+      dlg.returnValue = '';
+      dlg.addEventListener('close', () => resolver(dlg.returnValue === 'si'), { once: true });
+      dlg.showModal();
+      (peligro ? dlg.querySelector('.no') : si).focus();  // en acciones peligrosas, Enter no confirma por accidente
+    });
+  }
+  dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.close(); });  // clic fuera = cancelar
+  document.addEventListener('submit', ev => {
+    const form = ev.target, boton = ev.submitter;
+    const mensaje = (boton && boton.dataset.confirmar) || form.dataset.confirmar;
+    if (!mensaje) return;
+    if (form._confirmado) { form._confirmado = false; return; }
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    const b = boton || form.querySelector('button:not([type=button])');
+    const texto = b ? b.textContent.trim() : '';
+    const peligro = !!(b && b.classList.contains('peligro'));
+    confirmar(mensaje, texto.length > 1 && texto.length < 30 ? texto : 'Aceptar', peligro).then(ok => {
+      if (!ok) return;
+      form._confirmado = true;
+      boton ? form.requestSubmit(boton) : form.requestSubmit();
+    });
+  }, true);
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

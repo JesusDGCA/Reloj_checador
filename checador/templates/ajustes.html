@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block titulo %}Ajustes{% endblock %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Ajustes</h1><p class="sub">Empresa, días festivos, departamentos, usuarios, importación, respaldos y restauración.</p></div></div>
+
+<div class="rejilla r2">
+  <form class="tarjeta" method="post" action="{{ url_for('ajustes_empresa') }}">
+    <h2>Empresa</h2>
+    <label for="empresa">Nombre (aparece en los reportes)</label>
+    <input id="empresa" name="empresa" value="{{ empresa }}">
+    <div style="margin-top:20px"><button class="primario">Guardar</button></div>
+  </form>
+
+  <div class="tarjeta" id="respaldo">
+    <h2>Respaldo</h2>
+    <p class="chico">Descarga un archivo .zip con todo: empleados, checadas, huellas, justificaciones, fotos y contratos. Guárdalo en una USB o en la nube cada semana.</p>
+    <div style="margin-top:20px"><a class="boton primario" href="{{ url_for('respaldo') }}">Descargar respaldo completo</a></div>
+  </div>
+</div>
+
+<div class="tarjeta" id="restaurar" style="margin-top:24px">
+  <h2>Restaurar un respaldo</h2>
+  <p class="chico">Regresa el programa a como estaba cuando se hizo el respaldo (por ejemplo, en una computadora nueva o si se dañó algo).
+    <b>Reemplaza</b> empleados, checadas, horarios, usuarios y configuración por los del respaldo. Antes de restaurar, el programa guarda
+    solo una copia de lo que hay ahora, para que puedas deshacerlo.</p>
+  <form method="post" action="{{ url_for('restaurar') }}" enctype="multipart/form-data" class="espera"
+        data-confirmar="¿Restaurar este respaldo? Lo que hay ahora se reemplazará (se guarda una copia antes). Después tendrás que volver a entrar.">
+    <div class="campos" style="margin-top:20px">
+      <div><label for="archivo_respaldo">Archivo de respaldo (.zip)</label><input type="file" id="archivo_respaldo" name="archivo" accept=".zip" required></div>
+      <div><label for="contrasena_rest">Tu contraseña (para confirmar)</label><input type="password" id="contrasena_rest" name="contrasena" autocomplete="current-password" required></div>
+    </div>
+    <div class="botones" style="margin-top:22px"><button class="peligro">Restaurar respaldo</button></div>
+  </form>
+  {% if respaldos %}
+  <h3 style="margin:28px 0 10px;font-size:1rem">Copias guardadas antes de cada restauración</h3>
+  <p class="chico">Si restauraste por error, regresa a una de estas.</p>
+  <div class="tabla-caja">
+    <table>
+      <thead><tr><th>Copia</th><th>Fecha</th><th>Tamaño</th><th></th></tr></thead>
+      <tbody>
+      {% for r in respaldos %}
+      <tr>
+        <td class="chico">{{ r.archivo }}</td><td class="num">{{ r.fecha }}</td><td class="chico">{{ r.tamano|tam }}</td>
+        <td class="d"><form method="post" action="{{ url_for('restaurar') }}" class="botones derecha espera"
+              data-confirmar="¿Regresar a la copia del {{ r.fecha }}? Lo que hay ahora se reemplazará (también se guarda una copia antes).">
+          <a class="boton" href="{{ url_for('respaldo_guardado', nombre=r.archivo) }}">Descargar</a>
+          <input type="hidden" name="guardado" value="{{ r.archivo }}">
+          <input type="password" name="contrasena" placeholder="Tu contraseña" autocomplete="current-password" required style="max-width:160px">
+          <button class="peligro">Regresar a esta</button></form></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<div class="tarjeta" id="festivos" style="margin-top:24px">
+  <h2>Días festivos</h2>
+  <p class="chico">Esos días nadie tiene falta. Si alguien viene a trabajar, sus horas cuentan como extra (si su horario permite tiempo extra).
+    Los festivos oficiales (Ley Federal del Trabajo, art. 74) se cargan solos cada año; puedes agregar los de tu empresa o quitar los que no apliquen.</p>
+  <div class="botones" style="margin:18px 0 6px;align-items:flex-end">
+    <form method="get" action="{{ url_for('ajustes') }}" class="botones" style="align-items:flex-end">
+      <div><label for="anio">Año</label>
+        <select id="anio" name="anio" onchange="this.form.action += '#festivos'; this.form.submit()">{% for a in anios %}<option value="{{ a }}" {{ 'selected' if a == anio }}>{{ a }}</option>{% endfor %}</select></div>
+    </form>
+    <form method="post" action="{{ url_for('festivos_oficiales') }}"><input type="hidden" name="anio" value="{{ anio }}">
+      <button>Cargar festivos oficiales de {{ anio }}</button></form>
+  </div>
+  <form id="fest-nuevo" method="post" action="{{ url_for('festivo_agregar') }}"></form>
+  <div class="tabla-caja" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Fecha</th><th>Día</th><th>Nombre</th><th></th><th></th></tr></thead>
+      <tbody>
+      <tr>
+        <td><input form="fest-nuevo" type="date" name="fecha" required></td>
+        <td></td>
+        <td><input form="fest-nuevo" name="nombre" placeholder="Ej. Jueves Santo, aniversario de la empresa…"></td>
+        <td></td>
+        <td class="d"><button form="fest-nuevo" class="primario">+ Agregar</button></td>
+      </tr>
+      {% for f in festivos %}
+      <tr>
+        <td class="num">{{ f.fecha|fecha }}</td>
+        <td class="chico">{{ f.dia }}</td>
+        <td><b>{{ f.nombre }}</b></td>
+        <td>{% if f.oficial %}<span class="et morado">oficial</span>{% else %}<span class="et">de la empresa</span>{% endif %}</td>
+        <td class="d"><form method="post" action="{{ url_for('festivo_borrar', id_=f.id) }}" data-confirmar="¿Quitar {{ f.nombre }}? Ese día volverá a ser laboral.">
+          <button class="peligro">Quitar</button></form></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="vacio">No hay días festivos en {{ anio }}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="tarjeta" id="departamentos" style="margin-top:24px">
+  <h2>Departamentos</h2>
+  {% for d in deps %}<form id="dep{{ d.id }}" method="post" action="{{ url_for('ajustes_departamento') }}"><input type="hidden" name="id" value="{{ d.id }}"></form>{% endfor %}
+  <form id="dep-nuevo" method="post" action="{{ url_for('ajustes_departamento') }}"></form>
+  <div class="tabla-caja">
+  <table>
+    <thead><tr><th>Nombre</th><th>Horario</th><th class="c">Empleados</th><th></th></tr></thead>
+    <tbody>
+    <tr>
+      <td><input form="dep-nuevo" name="nombre" placeholder="Nombre del nuevo departamento" required></td>
+      <td><select form="dep-nuevo" name="horario_id">{% for h in hors %}<option value="{{ h.id }}">{{ h.nombre }}</option>{% endfor %}</select></td>
+      <td></td><td class="d"><button form="dep-nuevo" class="primario">+ Agregar</button></td>
+    </tr>
+    {% for d in deps %}
+    <tr>
+      <td><input form="dep{{ d.id }}" name="nombre" value="{{ d.nombre }}"></td>
+      <td><select form="dep{{ d.id }}" name="horario_id"><option value="">El primero de la lista</option>
+        {% for h in hors %}<option value="{{ h.id }}" {{ 'selected' if d.horario_id == h.id }}>{{ h.nombre }}</option>{% endfor %}</select></td>
+      <td class="c chico">{{ d.n }}</td>
+      <td class="d"><div class="botones derecha"><button form="dep{{ d.id }}">Guardar</button>
+        <button form="dep{{ d.id }}" class="peligro" name="borrar" value="1" data-confirmar="¿Eliminar el departamento {{ d.nombre }}? Sus empleados quedarán sin departamento.">Eliminar</button></div></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="tarjeta" id="usuarios" style="margin-top:24px">
+  <h2>Usuarios que pueden entrar al programa</h2>
+  <form id="usr-nuevo" method="post" action="{{ url_for('ajustes_usuario_nuevo') }}"></form>
+  <div class="tabla-caja">
+  <table>
+    <thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Último acceso</th><th></th></tr></thead>
+    <tbody>
+    <tr>
+      <td><input form="usr-nuevo" name="usuario" placeholder="Nuevo usuario" autocomplete="off" required></td>
+      <td><input form="usr-nuevo" name="nombre" placeholder="Nombre (opcional)"></td>
+      <td><input form="usr-nuevo" name="contrasena" type="password" placeholder="Contraseña" autocomplete="new-password" minlength="{{ min_contrasena }}" required>
+          <input form="usr-nuevo" name="contrasena2" type="password" placeholder="Repetir contraseña" autocomplete="new-password" minlength="{{ min_contrasena }}" required style="margin-top:6px"></td>
+      <td></td><td class="d"><button form="usr-nuevo" class="primario">+ Agregar</button></td>
+    </tr>
+    {% for u in usuarios %}
+    <tr {% if not u.activo %}style="opacity:.55"{% endif %}>
+      <td><b>{{ u.usuario }}</b>{% if usuario_actual and u.id == usuario_actual.id %} <span class="chico">(tú)</span>{% endif %}{% if not u.activo %} <span class="chico">· desactivado</span>{% endif %}</td>
+      <td>{{ u.nombre }}</td>
+      <td><form id="usr{{ u.id }}" method="post" action="{{ url_for('ajustes_usuario', id_=u.id) }}">
+          <input type="hidden" name="accion" value="contrasena">
+          <input name="contrasena" type="password" placeholder="Nueva contraseña" autocomplete="new-password" minlength="{{ min_contrasena }}" required>
+          <input name="contrasena2" type="password" placeholder="Repetir" autocomplete="new-password" minlength="{{ min_contrasena }}" required style="margin-top:6px">
+        </form></td>
+      <td class="chico">{{ u.ultimo_acceso or 'Nunca' }}</td>
+      <td class="d"><div class="botones derecha">
+        <button form="usr{{ u.id }}">Cambiar contraseña</button>
+        {% if not (usuario_actual and u.id == usuario_actual.id) %}
+        <form method="post" action="{{ url_for('ajustes_usuario', id_=u.id) }}">
+          {% if u.activo %}<input type="hidden" name="accion" value="desactivar"><button class="peligro" data-confirmar="¿Desactivar a {{ u.usuario }}? Ya no podrá entrar al programa.">Desactivar</button>
+          {% else %}<input type="hidden" name="accion" value="activar"><button>Activar</button>{% endif %}
+        </form>
+        {% endif %}
+      </div></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="chico" style="margin:12px 0 0">Si se olvida la contraseña de todos, en la computadora de Checador abre una terminal en la carpeta del programa y ejecuta
+    <code>.venv\Scripts\python.exe app.py --nuevo-usuario</code>.</p>
+</div>
+
+<form class="tarjeta subir espera" id="importar" method="post" action="{{ url_for('ajustes_importar') }}" enctype="multipart/form-data" style="margin-top:24px">
+  <h2>Importar del programa de Steren</h2>
+  <p class="chico">Sube el archivo de respaldo del programa “Reloj Checador Steren” (termina en .db). Se importan empleados, departamentos,
+    horarios, checadas y huellas. Puedes hacerlo varias veces: lo que ya existe no se duplica.</p>
+  <div class="botones" style="margin-top:20px"><input type="file" name="archivo" accept=".db" required style="max-width:440px"><button class="primario">Importar</button></div>
+</form>
+{% endblock %}

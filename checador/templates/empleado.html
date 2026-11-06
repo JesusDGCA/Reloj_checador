@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block titulo %}{{ e.nombre }} {{ e.apellidos }}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{{ url_for('empleados') }}">← Empleados</a>
+
+<div class="perfil">
+  <div class="perfil-foto">
+    {% if e.foto %}<a href="{{ url_for('foto', archivo=e.foto) }}" target="_blank" title="Ver foto completa"><img src="{{ url_for('foto', archivo=e.foto) }}" alt=""></a>
+    {% else %}<div class="inicial">{{ e.nombre[:1] }}{{ (e.apellidos or '')[:1] }}</div>{% endif %}
+    <form method="post" action="{{ url_for('empleado_foto', id_=e.id) }}" enctype="multipart/form-data">
+      <label title="{{ 'Cambiar foto' if e.foto else 'Subir foto' }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <input type="file" name="foto" accept="image/*" onchange="this.form.submit()">
+      </label>
+    </form>
+  </div>
+  <div class="perfil-info">
+    <h1>{{ e.nombre }} {{ e.apellidos }}</h1>
+    <div class="meta">
+      <span class="et azul">No. {{ e.numero }}</span>
+      {% if e.departamento %}<span class="et">{{ e.departamento }}</span>{% endif %}
+      {% if e.puesto %}<span class="et">{{ e.puesto }}</span>{% endif %}
+      {% if not e.activo %}<span class="et mal">Baja desde {{ e.fecha_baja|fecha }}</span>{% endif %}
+      {% if rep and rep.horario %}<span class="chico">Horario {{ rep.horario.nombre }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="botones">
+    <a class="boton" target="_blank" href="{{ url_for('reportes_descargar', tipo='empleado', empleado=e.id, periodo='mes') }}">Asistencia del mes (PDF)</a>
+    <a class="boton suave" target="_blank" href="{{ url_for('reportes_descargar', tipo='historial', empleado=e.id, periodo='todo') }}">Historial completo (PDF)</a>
+  </div>
+</div>
+
+<div class="pestanas" id="pestanas">
+  <a href="#datos">Datos</a>
+  <a href="#documentos">Contrato y documentos{% if docs %} ({{ docs|length }}){% endif %}</a>
+  <a href="#asistencia">Asistencia</a>
+  <a href="#reloj">Reloj y estado</a>
+</div>
+
+<section id="sec-datos" class="seccion">
+  <form method="post" class="tarjeta" style="max-width:900px">
+    {% include "_form_empleado.html" %}
+    <hr class="separador">
+    <div class="botones">
+      <button type="submit" class="primario grande">Guardar cambios</button>
+      <label class="check"><input type="checkbox" name="enviar_reloj" value="1" checked> Si cambió el nombre o número, actualizar el reloj</label>
+    </div>
+  </form>
+</section>
+
+<section id="sec-documentos" class="seccion">
+  <div class="rejilla r2">
+    <div class="tarjeta">
+      <h2>Expediente</h2>
+      {% for d in docs %}
+      {% set ext = d.nombre.rsplit('.', 1)[-1][:4] if '.' in d.nombre else 'doc' %}
+      <div class="doc">
+        <a class="doc-icono" href="{{ url_for('documento', doc_id=d.id) }}" target="_blank">{{ ext }}</a>
+        <div class="info">
+          <b>{{ TIPOS_DOC.get(d.tipo, d.tipo) }}</b>
+          <span class="chico">{{ d.nombre }} · {{ d.tamano|tam }} · subido {{ d.subido|fecha }}{% if d.notas %} · {{ d.notas }}{% endif %}</span>
+          {% if d.tipo == 'contrato' %}
+            {% if d.inicio %}<span class="et">desde {{ d.inicio|fecha }}</span>{% endif %}
+            {% if d.vence %}
+              {% if d.vence < hoy.isoformat() %}<span class="et mal">venció {{ d.vence|fecha }}</span>
+              {% else %}<span class="et ok">vigente hasta {{ d.vence|fecha }}</span>{% endif %}
+            {% else %}<span class="et ok">tiempo indefinido</span>{% endif %}
+          {% endif %}
+        </div>
+        <div class="botones">
+          <a class="boton" href="{{ url_for('documento', doc_id=d.id) }}" target="_blank">Ver</a>
+          <form method="post" action="{{ url_for('documento_borrar', doc_id=d.id) }}" data-confirmar="¿Eliminar este documento?">
+            <button class="peligro" title="Eliminar">Eliminar</button></form>
+        </div>
+      </div>
+      {% else %}
+      <p class="vacio">Aún no hay documentos. Sube su contrato con el formulario de al lado.</p>
+      {% endfor %}
+    </div>
+
+    <form class="tarjeta subir espera" method="post" action="{{ url_for('documento_subir', id_=e.id) }}" enctype="multipart/form-data">
+      <h2>Subir documento</h2>
+      <div class="campos">
+        <div class="campo-ancho"><label for="tipo">¿Qué es?</label>
+          <select id="tipo" name="tipo" onchange="document.getElementById('vigencia').style.display = this.value == 'contrato' ? '' : 'none'">
+            {% for k, v in TIPOS_DOC.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+        <div class="campo-ancho"><label for="archivo">Archivo</label><input type="file" id="archivo" name="archivo" multiple required>
+          <p class="ayuda">PDF, foto o Word. Puedes elegir varios a la vez.</p></div>
+      </div>
+      <div class="campos" id="vigencia" style="margin-top:22px">
+        <div><label for="inicio">Inicio del contrato</label><input type="date" id="inicio" name="inicio"></div>
+        <div><label for="vence">Vence</label><input type="date" id="vence" name="vence"><p class="ayuda">Déjalo vacío si es por tiempo indefinido.</p></div>
+      </div>
+      <div style="margin-top:22px"><label for="notas_doc">Nota (opcional)</label><input id="notas_doc" name="notas" placeholder="Ej. contrato por obra determinada"></div>
+      <div class="botones" style="margin-top:28px"><button type="submit" class="primario">Subir documento</button></div>
+    </form>
+  </div>
+</section>
+
+<section id="sec-asistencia" class="seccion">
+  <form class="filtros" method="get">
+    <div><label for="desde">Desde</label><input type="date" id="desde" name="desde" value="{{ desde.isoformat() }}"></div>
+    <div><label for="hasta">Hasta</label><input type="date" id="hasta" name="hasta" value="{{ hasta.isoformat() }}"></div>
+    <input type="hidden" name="t" value="asistencia">
+    <button>Ver</button>
+    <a class="boton" target="_blank" href="{{ url_for('reportes_descargar', tipo='empleado', empleado=e.id, periodo='fechas', desde=desde, hasta=hasta) }}">Descargar PDF</a>
+  </form>
+  {% if rep %}
+  <div class="rejilla r4" style="margin-bottom:28px">
+    <div class="cifra-caja"><div class="cifra">{{ rep.asistencias }}</div><div class="cifra-et">días trabajados</div></div>
+    <div class="cifra-caja"><div class="cifra {{ 'mal' if rep.faltas }}">{{ rep.faltas }}</div><div class="cifra-et">faltas{% if rep.justificados %} · {{ rep.justificados }} justificadas{% endif %}</div></div>
+    <div class="cifra-caja"><div class="cifra {{ 'warn' if rep.retardos }}">{{ rep.retardos }}</div><div class="cifra-et">retardos ({{ rep.min_retardo|int }} min)</div></div>
+    <div class="cifra-caja"><div class="cifra">{{ fmt_horas(rep.minutos) }}</div><div class="cifra-et">horas trabajadas{% if rep.extra %} · {{ fmt_horas(rep.extra) }} extra{% endif %}</div></div>
+  </div>
+  <div class="tabla-caja">
+    <table>
+      <thead><tr><th>Fecha</th><th>Horario</th><th>Checadas</th><th class="d">Horas</th><th>Estado</th></tr></thead>
+      <tbody>
+      {% for d in rep.detalle|reverse %}{% if d.estado or d.checadas %}
+      <tr>
+        <td><b>{{ d.dia }}</b> &nbsp;{{ d.fecha|fecha }}</td>
+        <td class="chico">{{ d.plan_texto }}</td>
+        <td class="num">{{ d.texto }}</td>
+        <td class="d num">{{ fmt_horas(d.minutos) if d.minutos else '' }}</td>
+        <td>
+          {% if d.estado == 'falta' %}<span class="et mal">falta</span>
+            <button type="button" class="boton-mini" onclick="justificarDia('{{ d.fecha.isoformat() }}')">Justificar</button>
+          {% elif d.estado == 'justificado' %}<span class="et azul" title="{{ d.justificacion.nota }}">{{ d.justificacion.texto }}</span>
+          {% elif d.estado == 'festivo' %}<span class="et morado">{{ d.festivo }}</span>
+          {% elif d.estado == 'descanso' %}<span class="chico">descanso</span>
+          {% elif d.estado == 'incompleto' %}<span class="et warn">le faltó checar</span>
+            <button type="button" class="boton-mini" onclick="justificarDia('{{ d.fecha.isoformat() }}')">Justificar</button>
+          {% elif d.estado == 'en turno' %}<span class="et azul">en turno</span>
+          {% elif d.estado == 'pendiente' %}<span class="et">aún no llega</span>
+          {% elif not d.retardo and not d.faltante %}<span class="et ok">bien</span>{% endif %}
+          {% if d.retardo %}<span class="et warn">retardo {{ d.retardo|int }} min</span>{% endif %}
+          {% if d.salio_antes %}<span class="et warn">salió antes</span>{% endif %}
+          {% if d.faltante >= 1 and d.estado != 'falta' %}<span class="et warn">faltaron {{ fmt_horas(d.faltante) }} h</span>{% endif %}
+          {% if d.extra %}<span class="et ok">+{{ fmt_horas(d.extra) }} extra</span>{% endif %}
+          {% if d.festivo and d.checadas %}<span class="et morado">trabajó en festivo</span>{% endif %}
+          {% if d.justificacion and d.plan and d.estado != 'justificado' %}<span class="et azul" title="{{ d.justificacion.nota }}">{{ d.justificacion.texto }}</span>{% endif %}
+          {% if d.retardo and not d.justificacion %}<button type="button" class="boton-mini" onclick="justificarDia('{{ d.fecha.isoformat() }}')">Justificar</button>{% endif %}
+        </td>
+      </tr>
+      {% endif %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <details class="tarjeta plegable" id="justificar" style="margin-top:28px" {{ 'open' if justifs }}>
+    <summary>Vacaciones, incapacidades y permisos (justificar faltas){% if justifs %} · {{ justifs|length }}{% endif %}</summary>
+    <form method="post" action="{{ url_for('justificar', id_=e.id) }}" class="campos tres">
+      <input type="hidden" name="ver_desde" value="{{ desde.isoformat() }}"><input type="hidden" name="ver_hasta" value="{{ hasta.isoformat() }}">
+      <div><label for="jtipo">Motivo</label>
+        <select id="jtipo" name="tipo" required>{% for k, v in TIPOS_JUSTIFICACION.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+      <div><label for="jdesde">Desde</label><input type="date" id="jdesde" name="desde" required></div>
+      <div><label for="jhasta">Hasta (inclusive)</label><input type="date" id="jhasta" name="hasta"><p class="ayuda">Vacío = solo un día.</p></div>
+      <div class="campo-ancho"><label for="jnota">Nota (opcional)</label><input id="jnota" name="nota" placeholder="Ej. folio de incapacidad IMSS, permiso autorizado por…"></div>
+      <div class="campo-ancho"><button class="primario">Registrar</button>
+        <p class="ayuda">Esos días no cuentan como falta, retardo ni horas faltantes. Queda registrado en la bitácora quién lo autorizó.</p></div>
+    </form>
+    {% if justifs %}
+    <div class="tabla-caja" style="margin-top:24px">
+      <table>
+        <thead><tr><th>Motivo</th><th>Periodo</th><th>Nota</th><th>Registró</th><th></th></tr></thead>
+        <tbody>
+        {% for j in justifs %}
+        <tr>
+          <td><span class="et azul">{{ TIPOS_JUSTIFICACION.get(j.tipo, j.tipo) }}</span></td>
+          <td class="num">{% if j.desde == j.hasta %}{{ j.desde|fecha }}{% else %}{{ j.desde|fecha }} – {{ j.hasta|fecha }}{% endif %}</td>
+          <td class="chico">{{ j.nota }}</td>
+          <td class="chico">{{ j.usuario }} · {{ j.creado|fecha }}</td>
+          <td class="d"><form method="post" action="{{ url_for('justificacion_borrar', j_id=j.id) }}" data-confirmar="¿Quitar esta justificación? Esos días volverán a contar como falta si no checó.">
+            <button class="peligro">Quitar</button></form></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </details>
+
+  <details class="tarjeta plegable" style="margin-top:28px">
+    <summary>¿Se le olvidó checar? Agregar una checada a mano</summary>
+    <form method="post" action="{{ url_for('checada_manual', id_=e.id) }}" class="campos tres">
+      <div><label for="cf">Fecha</label><input type="date" id="cf" name="fecha" value="{{ hoy.isoformat() }}" required></div>
+      <div><label for="ch">Hora</label><input type="time" id="ch" name="hora" required></div>
+      <div><label for="cn">Motivo</label><input id="cn" name="nota" placeholder="Ej. olvidó checar la salida"></div>
+      <div class="campo-ancho"><button class="primario">Agregar checada</button>
+        <p class="ayuda">Las checadas a mano quedan registradas en la bitácora.</p></div>
+    </form>
+  </details>
+</section>
+
+<section id="sec-reloj" class="seccion">
+  <div class="rejilla r2">
+    <div class="tarjeta">
+      <h2>Reloj checador</h2>
+      <p class="chico">{% if huellas %}{{ huellas|length }} {{ 'huella respaldada' if huellas|length == 1 else 'huellas respaldadas' }} en esta computadora.
+        {% else %}Sin huellas respaldadas. Regístrala en el reloj y luego usa Reloj checador › Respaldar huellas.{% endif %}</p>
+      <div class="acciones-lista" style="margin-top:20px">
+        <div class="accion"><span><b>Enviar al reloj</b><span class="chico">Da de alta o actualiza su nombre en el reloj.</span></span>
+          <form method="post" action="{{ url_for('empleado_reloj', id_=e.id) }}" class="espera"><input type="hidden" name="accion" value="enviar"><button>Enviar</button></form></div>
+        {% if huellas %}
+        <div class="accion"><span><b>Cargar sus huellas</b><span class="chico">Sube al reloj las huellas respaldadas.</span></span>
+          <form method="post" action="{{ url_for('empleado_reloj', id_=e.id) }}" class="espera"><input type="hidden" name="accion" value="huellas"><button>Cargar</button></form></div>
+        {% endif %}
+        <div class="accion"><span><b>Quitar del reloj</b><span class="chico">Ya no podrá checar. Su expediente se conserva.</span></span>
+          <form method="post" action="{{ url_for('empleado_reloj', id_=e.id) }}" class="espera" data-confirmar="¿Quitar a {{ e.nombre }} del reloj?">
+            <input type="hidden" name="accion" value="quitar"><button class="peligro">Quitar</button></form></div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <h2>{{ 'Dar de baja' if e.activo else 'Empleado dado de baja' }}</h2>
+      {% if e.activo %}
+      <form method="post" action="{{ url_for('empleado_estado', id_=e.id) }}" class="espera" data-confirmar="¿Dar de baja a {{ e.nombre }}?">
+        <p class="chico">Su expediente, documentos y asistencia se conservan y puedes reactivarlo cuando quieras.</p>
+        <div style="margin:20px 0"><label for="fecha_baja">Fecha de baja</label><input type="date" id="fecha_baja" name="fecha_baja" value="{{ hoy.isoformat() }}" style="max-width:240px"></div>
+        <label class="check" style="margin-bottom:24px"><input type="checkbox" name="quitar_reloj" value="1" checked> Quitarlo también del reloj</label>
+        <button class="peligro">Dar de baja</button>
+      </form>
+      {% else %}
+      <p class="chico">Dado de baja el {{ e.fecha_baja|fecha }}.</p>
+      <form method="post" action="{{ url_for('empleado_estado', id_=e.id) }}"><button class="primario">Reactivar empleado</button></form>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function mostrar() {
+    let t = (location.hash || '').slice(1) || new URLSearchParams(location.search).get('t') || 'datos';
+    if (!document.getElementById('sec-' + t)) t = 'datos';
+    document.querySelectorAll('.seccion').forEach(s => s.style.display = s.id === 'sec-' + t ? '' : 'none');
+    document.querySelectorAll('#pestanas a').forEach(a => a.classList.toggle('activo', a.getAttribute('href') === '#' + t));
+  }
+  window.addEventListener('hashchange', mostrar);
+  mostrar();
+  // Botón "Justificar" de cada día: abre el formulario con la fecha puesta
+  function justificarDia(fecha) {
+    const det = document.getElementById('justificar');
+    det.open = true;
+    document.getElementById('jdesde').value = fecha;
+    document.getElementById('jhasta').value = fecha;
+    det.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('jtipo').focus();
+  }
+</script>
+{% endblock %}

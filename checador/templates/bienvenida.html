@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Bienvenido{% endblock %}
+{% block contenido %}
+<div style="max-width:820px">
+  <h1 style="font-size:2rem">Bienvenido a Checador</h1>
+  <p class="sub" style="font-size:1.05rem">Para empezar, carga tus empleados. Solo se hace una vez.</p>
+
+  <form class="tarjeta subir espera" method="post" action="{{ url_for('ajustes_importar') }}" enctype="multipart/form-data">
+    <input type="hidden" name="volver" value="{{ url_for('inicio') }}">
+    <h2>1. Traer todo del programa de Steren</h2>
+    <p style="margin-top:0">Elige el archivo de respaldo del programa de Steren (termina en <b>.db</b>).
+      Se cargan empleados, departamentos, checadas y huellas.</p>
+    <div class="botones"><input type="file" name="archivo" accept=".db" required style="max-width:420px">
+      <button class="primario">Cargar respaldo</button></div>
+  </form>
+
+  <div class="tarjeta">
+    <h2>¿No tienes respaldo?</h2>
+    <div class="botones">
+      <form method="post" action="{{ url_for('reloj_accion', accion='traer_usuarios') }}" class="espera"><button>Traer los empleados directo del reloj</button></form>
+      <a class="boton" href="{{ url_for('empleado_nuevo') }}">Agregar empleados uno por uno</a>
+    </div>
+    <p class="chico" style="margin-bottom:0">El reloj está configurado en la dirección {{ cfg_ip }}. Si cambió, corrígela en <a href="{{ url_for('reloj_vista') }}">Reloj checador</a>.</p>
+  </div>
+</div>
+{% endblock %}

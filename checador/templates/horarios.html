@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block titulo %}Horarios{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Horarios</h1><p class="sub">Define qué se espera cada día: hora fija de entrada y salida, o horas flexibles.</p></div>
+  <a class="boton primario" href="{{ url_for('horarios_vista', id='nuevo') }}">+ Nuevo horario</a>
+</div>
+
+<div class="rejilla col-izq">
+  <div class="lista-horarios">
+    {% for h in hs %}
+    <a class="item-horario {{ 'activo' if actual and actual.id == h.id }}" href="{{ url_for('horarios_vista', id=h.id) }}">
+      <b>{{ h.nombre }}</b>
+      <span class="chico">{{ h.resumen }}</span>
+      <span class="chico" style="margin-top:8px">{{ h.personas }} {{ 'persona' if h.personas == 1 else 'personas' }}
+        {% if h.deps %}· {{ h.deps|length }} {{ 'departamento' if h.deps|length == 1 else 'departamentos' }}{% endif %}</span>
+    </a>
+    {% endfor %}
+    {% if actual and not actual.id %}<div class="item-horario activo"><b>Nuevo horario</b><span class="chico">Sin guardar</span></div>{% endif %}
+  </div>
+
+  {% if actual %}
+  <form class="tarjeta" method="post" action="{{ url_for('horarios_guardar') }}">
+    {% if actual.id %}<input type="hidden" name="id" value="{{ actual.id }}">{% endif %}
+    <fieldset>
+      <div style="max-width:420px"><label for="nombre">Nombre del horario</label>
+        <input id="nombre" name="nombre" value="{{ actual.nombre }}" placeholder="Ej. Flexible, Turno mañana…" required></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Días de la semana</legend>
+      <table class="dias-horario">
+        <tbody>
+        {% for i in range(7) %}
+          {% set p = actual.dias[i|string] %}
+          {% set tipo = p.tipo if p else 'descanso' %}
+          <tr data-dia="{{ i }}">
+            <td>{{ DIAS[i] }}</td>
+            <td style="width:1%">
+              <div class="segmento">
+                <label><input type="radio" name="tipo{{ i }}" value="fijo" {{ 'checked' if tipo == 'fijo' }}>Hora fija</label>
+                <label><input type="radio" name="tipo{{ i }}" value="flexible" {{ 'checked' if tipo == 'flexible' }}>Flexible</label>
+                <label><input type="radio" name="tipo{{ i }}" value="descanso" {{ 'checked' if tipo == 'descanso' }}>Descanso</label>
+              </div>
+            </td>
+            <td>
+              <div class="detalle-dia" data-para="fijo">
+                <input type="time" name="e{{ i }}" value="{{ p.entrada if p and p.tipo == 'fijo' else '08:00' }}" aria-label="Entrada">
+                a
+                <input type="time" name="s{{ i }}" value="{{ p.salida if p and p.tipo == 'fijo' else '18:00' }}" aria-label="Salida">
+              </div>
+              <div class="detalle-dia" data-para="flexible">
+                <input class="horas" type="number" step="0.5" min="0.5" max="24" name="h{{ i }}"
+                       value="{{ (p.minutos / 60)|round(1)|string|replace('.0', '') if p and p.tipo == 'flexible' else (6 if i == 5 else 10) }}" aria-label="Horas">
+                horas, entrada a las
+                <input type="time" name="ef{{ i }}" value="{{ p.entrada if p and p.tipo == 'flexible' and p.entrada }}"
+                       aria-label="Hora de entrada (opcional)" title="Opcional: si la pones, cuenta retardos">
+              </div>
+              <div class="detalle-dia" data-para="descanso"><span class="chico">No se trabaja</span></div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="ayuda nota-flexible"><b>Hora fija:</b> tiene hora de entrada y salida, cuenta retardos.
+        <b>Flexible:</b> el empleado cubre esas horas. Si le pones hora de entrada, también cuenta retardos;
+        si la dejas vacía, puede llegar a la hora que sea.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Reglas</legend>
+      <div class="campos">
+        <div><label for="tolerancia">Tolerancia (minutos)</label>
+          <input id="tolerancia" name="tolerancia" type="number" min="0" value="{{ actual.tolerancia }}">
+          <p class="ayuda">Minutos de gracia antes de contar retardo (hora fija o flexible con entrada). En flexible también son los minutos que pueden faltar sin marcarlo.</p></div>
+        <div><label for="comida">Comida (minutos)</label>
+          <input id="comida" name="comida" type="number" min="0" value="{{ actual.comida }}">
+          <p class="ayuda">Solo en hora fija: se descuenta si el empleado checa únicamente entrada y salida.</p></div>
+      </div>
+      <div style="margin-top:24px" class="pila">
+        <label class="check"><input type="checkbox" name="primera_ultima" value="1" {{ 'checked' if actual.primera_ultima }}>
+          Usar solo la primera checada como entrada y la última como salida</label>
+        <label class="check"><input type="checkbox" name="tiempo_extra" value="1" {{ 'checked' if actual.tiempo_extra }}>
+          Contar tiempo extra (lo que pase de lo requerido)</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>¿Qué departamentos lo usan?</legend>
+      <div class="chips-check">
+        {% for d in deps %}
+        <label><input type="checkbox" name="deps" value="{{ d.id }}" {{ 'checked' if actual.id and d.horario_id == actual.id }}>
+          {{ d.nombre }} <span class="chico">{{ d.n }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="ayuda" style="margin-top:14px">También puedes darle un horario distinto a una sola persona desde su ficha.</p>
+    </fieldset>
+
+    <hr class="separador">
+    <div class="botones">
+      <button type="submit" class="primario grande">Guardar horario</button>
+      {% if actual.id and hs|length > 1 %}
+      <button class="peligro" formaction="{{ url_for('horarios_borrar', id_=actual.id) }}"
+              data-confirmar="¿Eliminar el horario {{ actual.nombre }}?">Eliminar</button>
+      {% endif %}
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function pintar(fila) {
+    const tipo = fila.querySelector('input[type=radio]:checked').value;
+    fila.querySelectorAll('[data-para]').forEach(d => d.classList.toggle('oculto', d.dataset.para !== tipo));
+  }
+  document.querySelectorAll('tr[data-dia]').forEach(fila => {
+    pintar(fila);
+    fila.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', () => pintar(fila)));
+  });
+</script>
+{% endblock %}

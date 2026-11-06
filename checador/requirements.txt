@@ -1,0 +1,6 @@
+flask>=3.0
+waitress>=3.0
+pyzk>=0.9
+openpyxl>=3.1
+pillow>=10.0
+fpdf2>=2.7

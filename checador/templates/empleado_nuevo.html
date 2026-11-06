@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo empleado{% endblock %}
+{% block contenido %}
+<a class="volver" href="{{ url_for('empleados') }}">← Empleados</a>
+<div class="cabeza"><div><h1>Nuevo empleado</h1><p class="sub">Solo el número y el nombre son obligatorios. Lo demás se puede completar después.</p></div></div>
+<form method="post" class="tarjeta espera" style="max-width:860px">
+  {% include "_form_empleado.html" %}
+  <hr class="separador">
+  <div class="botones">
+    <button type="submit" class="primario grande">Guardar empleado</button>
+    <label class="check"><input type="checkbox" name="enviar_reloj" value="1" checked> Darlo de alta también en el reloj</label>
+  </div>
+</form>
+<div class="aviso info" style="margin-top:28px;max-width:860px">Después de guardar podrás subir su <b>foto</b> y su <b>contrato</b>.
+  La huella se registra en el propio reloj: <b>Menú › Usuarios › Usuarios</b>, elige su número, <b>Editar › Agregar Huella</b> y pon el dedo 3 veces.</div>
+{% endblock %}
